@@ -1,5 +1,10 @@
 # latent_world_model × VLA-JEPA × LIBERO 汇报版综合报告
 
+> **后续审计更正：** 本报告保留原 F0–F5 数值用于结果溯源。全链路复核
+> 后确认了训练匹配条件缺失、strict/joint 表示分布偏移、旧 H3 时间错位
+> 和上游双视角训练拼接错误。涉及实验有效性与模型能力的解释，请以
+> [`EXPERIMENT_AUDIT_REPORT.md`](EXPERIMENT_AUDIT_REPORT.md) 为准。
+
 > 本报告基于已采集的 v3 数据集、阶段 0/1 筛选结果、X0 补充对照和正式半量（130×5）结果生成。所有模型权重被冻结，没有重新训练 encoder 或 predictor；分析脚本只读取输入文件。
 
 ## 1. 摘要与结论

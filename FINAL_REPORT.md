@@ -1,5 +1,9 @@
 # latent_world_model 评估最终报告
 
+> **后续审计更正：** 本文是原正式实验的历史摘要。训练目标、action
+> 语义和时间对齐的复核结果见
+> [`EXPERIMENT_AUDIT_REPORT.md`](EXPERIMENT_AUDIT_REPORT.md)，其解释优先于本文。
+
 > 详细的数据采集、实验漏斗、分层统计、图像和 CSV 见
 > [`COMPREHENSIVE_REPORT.md`](COMPREHENSIVE_REPORT.md)。本文件保留正式结论的简表。
 

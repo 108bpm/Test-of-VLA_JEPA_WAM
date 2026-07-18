@@ -108,9 +108,32 @@ class LatentWorldModel(nn.Module):
         if views != self.config.num_views:
             raise ValueError("unexpected number of views")
         features = self.encoder.get_vision_features(pixel_values_videos=pixels.flatten(0, 1).to(self.encoder.device))
-        # Preserve each sample's views together. This corrects the original
-        # VLA-JEPA code's torch.chunk-by-view assumption for B > 1.
-        return features.view(bsz, views, features.shape[1], features.shape[2]).permute(0, 2, 1, 3).flatten(2)
+        return self.fuse_multiview_features(features, batch_size=bsz, num_views=views)
+
+    @staticmethod
+    def fuse_multiview_features(
+        features: torch.Tensor,
+        *,
+        batch_size: int,
+        num_views: int,
+    ) -> torch.Tensor:
+        """Fuse sample-major encoder outputs without mixing batch elements.
+
+        ``encode_video`` flattens ``[B,V,...]`` to
+        ``[b0v0,b0v1,b1v0,b1v1,...]``.  Reshaping both axes back before
+        concatenating the feature dimension is required.  Splitting this flat
+        tensor into ``V`` contiguous chunks (the source VLA-JEPA training
+        implementation) mixes samples whenever ``B > 1``.
+        """
+        if features.ndim != 3:
+            raise ValueError("features must have shape [batch_size * num_views, tokens, hidden]")
+        if batch_size < 1 or num_views < 1 or features.shape[0] != batch_size * num_views:
+            raise ValueError("feature batch does not match batch_size * num_views")
+        return (
+            features.view(batch_size, num_views, features.shape[1], features.shape[2])
+            .permute(0, 2, 1, 3)
+            .flatten(2)
+        )
 
     def split_context_target(self, video_latents: torch.Tensor):
         """Return context and its time-aligned one-step-ahead target sequence.

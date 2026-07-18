@@ -36,8 +36,8 @@ CONDITION_SPECS: Mapping[str, Mapping[str, object]] = {
     # Screening funnel (10 pre-registered conditions).
     "S0": {"protocol": "strict_causal", "context": 1, "horizon": 1, "action": "correct", "view": "both"},
     "S1": {"protocol": "strict_causal", "context": 3, "horizon": 1, "action": "correct", "view": "both"},
-    "S2": {"protocol": "strict_causal", "context": 1, "horizon": 3, "action": "correct", "view": "both"},
-    "S3": {"protocol": "strict_causal", "context": 3, "horizon": 3, "action": "correct", "view": "both"},
+    "S2": {"protocol": "strict_causal", "context": 1, "horizon": 3, "action": "correct", "view": "both", "h3_schedule": "within_query"},
+    "S3": {"protocol": "strict_causal", "context": 3, "horizon": 3, "action": "correct", "view": "both", "h3_schedule": "legacy_next_query"},
     "S4": {"protocol": "strict_causal", "context": 1, "horizon": 1, "action": "zero", "view": "both"},
     "S5": {"protocol": "strict_causal", "context": 1, "horizon": 1, "action": "shuffled", "view": "both"},
     "S6": {"protocol": "strict_causal", "context": 1, "horizon": 1, "action": "offset_plus_one", "view": "both"},
@@ -49,7 +49,7 @@ CONDITION_SPECS: Mapping[str, Mapping[str, object]] = {
     # Formal funnel (six conditions on all 1300 rollouts).
     "F0": {"protocol": "strict_causal", "context": 1, "horizon": 1, "action": "correct", "view": "both"},
     "F1": {"protocol": "strict_causal", "context": 3, "horizon": 1, "action": "correct", "view": "both"},
-    "F2": {"protocol": "strict_causal", "context": 1, "horizon": 3, "action": "correct", "view": "both"},
+    "F2": {"protocol": "strict_causal", "context": 1, "horizon": 3, "action": "correct", "view": "both", "h3_schedule": "within_query"},
     "F3": {"protocol": "strict_causal", "context": 1, "horizon": 1, "action": "zero", "view": "both"},
     "F4": {"protocol": "strict_causal", "context": 1, "horizon": 1, "action": "shuffled", "view": "both"},
     "F5": {"protocol": "original_joint", "context": 1, "horizon": 1, "action": "correct", "view": "both"},
@@ -73,6 +73,7 @@ class RunnerConfig:
     num_shards: int = 1
     screening: bool = False
     rollouts_per_task: Optional[int] = None
+    allow_legacy_misaligned_h3: bool = False
 
 
 def stable_row_id(row: Mapping[str, object]) -> str:
@@ -81,9 +82,10 @@ def stable_row_id(row: Mapping[str, object]) -> str:
 
 def _git_provenance() -> Dict[str, object]:
     result: Dict[str, object] = {}
+    repository_root = Path(__file__).resolve().parents[2]
     for name, path in (
-        ("latent_world_model", Path(__file__).resolve().parents[3]),
-        ("VLA_JEPA", Path(__file__).resolve().parents[3] / "VLA-JEPA"),
+        ("latent_world_model", repository_root),
+        ("VLA_JEPA", repository_root.parent / "VLA-JEPA"),
     ):
         try:
             result[f"{name}_commit"] = subprocess.check_output(
@@ -323,6 +325,7 @@ def _run_condition(
     device: torch.device,
     partner_groups: Optional[Tuple[Sequence[torch.Tensor], Sequence[torch.Tensor]]] = None,
     offset_groups: Optional[Sequence[torch.Tensor]] = None,
+    legacy_misaligned_h3: bool = False,
 ) -> Dict[str, object]:
     context_steps = int(spec["context"])
     horizon = int(spec["horizon"])
@@ -343,17 +346,25 @@ def _run_condition(
         actions = [cur[2]] if context_steps == 1 else cur
         values, _ = _predict_h1(model, context, actions, truth_blocks[3], device=device)
     else:
-        if next_groups is None:
-            raise ValueError("H3 conditions require a following policy query")
-        # C1 and C3 share the same action trajectory: g2 at the current query,
-        # then g0/g1 from the immediately following query.
-        if context_steps == 1:
-            initial = [blocks[2]]
-            windows = [[cur[2]], [nxt[0]], [nxt[1]]]
+        if context_steps == 1 and not legacy_misaligned_h3:
+            # Exact within-query schedule:
+            # z0 --g0--> z1 --g1--> z2 --g2--> z3.
+            initial = [blocks[0]]
+            windows = [[cur[0]], [cur[1]], [cur[2]]]
+            rollout_targets = [truth_blocks[1], truth_blocks[2], truth_blocks[3]]
         else:
-            initial = [blocks[0], blocks[1], blocks[2]]
-            windows = [[cur[0], cur[1], cur[2]], [cur[1], cur[2], nxt[0]], [cur[2], nxt[0], nxt[1]]]
-        values, _ = _predict_ar(model, initial, windows, [truth_blocks[3], truth_blocks[4], truth_blocks[5]], device=device)
+            if next_groups is None:
+                raise ValueError("legacy H3 conditions require a following policy query")
+            # Historical schedule retained only for reproducibility. The next
+            # query occurs at q+7, which is not aligned to 2-frame tubelets.
+            if context_steps == 1:
+                initial = [blocks[2]]
+                windows = [[cur[2]], [nxt[0]], [nxt[1]]]
+            else:
+                initial = [blocks[0], blocks[1], blocks[2]]
+                windows = [[cur[0], cur[1], cur[2]], [cur[1], cur[2], nxt[0]], [cur[2], nxt[0], nxt[1]]]
+            rollout_targets = [truth_blocks[3], truth_blocks[4], truth_blocks[5]]
+        values, _ = _predict_ar(model, initial, windows, rollout_targets, device=device)
     return values
 
 
@@ -425,6 +436,7 @@ def _write_config(config: RunnerConfig, rows: Sequence[dict]) -> None:
         "num_shards": config.num_shards,
         "screening": config.screening,
         "rollouts_per_task": config.rollouts_per_task,
+        "allow_legacy_misaligned_h3": config.allow_legacy_misaligned_h3,
         "row_count": len(rows),
         "created_unix": time.time(),
         "provenance": _git_provenance(),
@@ -434,6 +446,19 @@ def _write_config(config: RunnerConfig, rows: Sequence[dict]) -> None:
 
 def run_evaluation(config: RunnerConfig) -> dict:
     """Run the requested screening/formal conditions and return a summary."""
+    h3_conditions = [
+        condition
+        for condition in config.conditions
+        if int(CONDITION_SPECS[condition]["horizon"]) == 3
+        and int(CONDITION_SPECS[condition]["context"]) == 3
+    ]
+    if h3_conditions and not config.allow_legacy_misaligned_h3:
+        raise ValueError(
+            "Legacy H3 scheduling is temporally misaligned: policy queries are 7 control frames apart "
+            "but V-JEPA tubelets advance by 2 frames, so next-query g0/g1 cannot condition the requested "
+            "q+8..q+11 latent blocks exactly. Refusing conditions "
+            f"{h3_conditions}; pass --allow-legacy-misaligned-h3 only to reproduce historical outputs."
+        )
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
     if config.device.startswith("cuda") and not torch.cuda.is_available():
@@ -578,6 +603,7 @@ def run_evaluation(config: RunnerConfig) -> dict:
                                 device=device,
                                 partner_groups=partner_groups,
                                 offset_groups=offset_groups,
+                                legacy_misaligned_h3=config.allow_legacy_misaligned_h3,
                             )
                             pred_summary = values.pop("prediction_summary")
                             target_summary = values.pop("target_summary")
@@ -590,7 +616,19 @@ def run_evaluation(config: RunnerConfig) -> dict:
                                     "horizon": int(spec["horizon"]),
                                     "action_mode": str(spec["action"]),
                                     "view": view,
-                                    "target_delta_rms": _summarize_target(strict_blocks, strict_blocks[2]),
+                                    "h3_schedule": (
+                                        "legacy_next_query"
+                                        if int(spec["horizon"]) == 3 and config.allow_legacy_misaligned_h3
+                                        else str(spec.get("h3_schedule", "not_applicable"))
+                                    ),
+                                    "target_delta_rms": _summarize_target(
+                                        strict_blocks,
+                                        strict_blocks[0]
+                                        if int(spec["horizon"]) == 3
+                                        and int(spec["context"]) == 1
+                                        and not config.allow_legacy_misaligned_h3
+                                        else strict_blocks[2],
+                                    ),
                                     "timestamp": time.time(),
                                 }
                             )
@@ -647,6 +685,11 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> RunnerConfig:
     parser.add_argument("--num-shards", type=int, default=1)
     parser.add_argument("--screening", action="store_true", help="select one deterministic rollout per task")
     parser.add_argument("--rollouts-per-task", type=int, default=None, help="deterministically retain this many episodes per task")
+    parser.add_argument(
+        "--allow-legacy-misaligned-h3",
+        action="store_true",
+        help="reproduce historical H3 outputs despite the documented 7-frame/2-frame temporal mismatch",
+    )
     args = parser.parse_args(argv)
     conditions = tuple(args.conditions)
     unknown = sorted(set(conditions) - set(CONDITION_SPECS))
@@ -667,6 +710,7 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> RunnerConfig:
         num_shards=args.num_shards,
         screening=args.screening,
         rollouts_per_task=args.rollouts_per_task,
+        allow_legacy_misaligned_h3=args.allow_legacy_misaligned_h3,
     )
 
 

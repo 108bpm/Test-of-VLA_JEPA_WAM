@@ -47,6 +47,14 @@ loss = (predicted - target).abs().mean()
 
 For the default VLA-JEPA-compatible configuration it is `[B, 24, 2048]`: 3 context latent steps × 8 action tokens/step. Tokens at context step *i* condition the transition from `z_i` to `z_(i+1)`. They may come from a language model, a policy network, a learned action tokenizer, or any other module.
 
+The supplied VLA-JEPA checkpoint needs an important qualification: its 24
+world-model tokens are Qwen hidden states at `<|action_i|>` slots. The policy's
+actual 7-step action chunk is generated from a separate set of
+`<|embodied_action|>` slots by a stochastic flow-matching head. The 24 tokens
+are aligned with the same policy query, but they are **not** a deterministic
+encoding of the action chunk. See the full
+[`EXPERIMENT_AUDIT_REPORT.md`](EXPERIMENT_AUDIT_REPORT.md).
+
 For projects that already produce V-JEPA latent tensors, skip video encoding:
 
 ```python
@@ -79,6 +87,12 @@ and figures generated from the formal half-dataset run, is in
 `latent_world_model.evaluation.deep_analysis`; its generated artifacts live
 under `evaluation_outputs/deep_analysis/` and are intentionally kept out of
 Git because they are derived from large local results.
+
+The subsequent end-to-end correctness audit—including full action/video
+alignment, deterministic LIBERO replay, live latent-token recomputation,
+training-view fusion analysis, and corrected training-matched diagnostics—is
+recorded in [`EXPERIMENT_AUDIT_REPORT.md`](EXPERIMENT_AUDIT_REPORT.md). It
+supersedes the old report wherever protocol validity is discussed.
 
 For a result-free description of the collection logic, variables, formal
 conditions, staged experiment funnel, and statistical rules, see

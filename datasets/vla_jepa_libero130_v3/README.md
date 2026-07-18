@@ -76,6 +76,12 @@ action.  For world-model evaluation, choose an 8-frame multi-view window whose
 first frame is a query frame, encode it with the frozen V-JEPA2 encoder, and
 provide its aligned `[24, 2048]` latent action token tensor to the model.
 
+“Aligned” here means that both tensors came from the same policy query; it does
+not mean the 24 tokens are an encoding of the exact sampled action chunk. In
+VLA-JEPA, the world-model tokens and the stochastic action head use separate
+Qwen token slots. This distinction and the environment-level validation are
+documented in [`../../EXPERIMENT_AUDIT_REPORT.md`](../../EXPERIMENT_AUDIT_REPORT.md).
+
 The standalone model's default configuration has 8 video frames, V-JEPA2
 tubelet size 2, and 3 context latent steps.  Its predictor consumes `z0..z2`
 and predicts the aligned future blocks `z1..z3`.

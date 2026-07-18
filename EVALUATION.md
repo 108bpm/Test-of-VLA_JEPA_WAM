@@ -8,6 +8,15 @@ This evaluation is representation-space only. V-JEPA2 is an encoder/teacher;
 there is no compatible public latent-to-RGB decoder. The predictor and encoder
 are never trained or fine-tuned by these commands.
 
+> **Audit notice (2026-07-18):** F0–F5 below describe the historical run and
+> its files, not a fully training-matched or fully time-aligned protocol. The
+> audit found that no historical formal condition exactly reproduced the
+> source joint-C3 training objective, and that legacy AR-H3 mixes a 7-frame
+> policy-query interval with 2-frame tubelets. Read
+> [`EXPERIMENT_AUDIT_REPORT.md`](EXPERIMENT_AUDIT_REPORT.md) before interpreting
+> those results. The runner now refuses legacy H3 unless explicitly asked to
+> reproduce it.
+
 ## Data and environments
 
 Use only `datasets/vla_jepa_libero130_v3` and its deterministic index. The v3
@@ -40,9 +49,12 @@ last action-token group. C3 supplies `z0,z1,z2` and all three action groups.
 * `original_joint`: the original contiguous 8-frame joint encoding is used as
   predictor input. Its prediction is always scored against the corresponding
   strict-causal target, exposing any future-frame leakage.
-* H3 is autoregressive, not a new multi-horizon head. C1 rolls `z2` forward;
-  C3 rolls a three-state history with action windows `[g0,g1,g2]`,
-  `[g1,g2,next-g0]`, `[g2,next-g0,next-g1]`.
+* Historical H3 was autoregressive: C1 rolled `z2` forward and C3 rolled a
+  three-state history with action windows `[g0,g1,g2]`,
+  `[g1,g2,next-g0]`, `[g2,next-g0,next-g1]`. This is not exactly aligned after
+  the first transition because the next policy query is 7 control frames
+  later while latent blocks advance by 2 frames. It is retained only for old
+  result provenance.
 
 Single-view controls duplicate the selected RGB view into the second input
 slot because the released predictor has a fixed two-view 2048-dimensional
@@ -65,6 +77,9 @@ per task (episode ids `0,2,4,6,8`), i.e. 650 rollouts and 1950 windows. It
 runs the six pre-registered formal conditions:
 `F0` strict C1-H1; `F1` strict C3-H1; `F2` strict C1-AR-H3; `F3` zero
 action; `F4` same-task/stage shuffled action; and `F5` original joint encoding.
+These names describe the completed historical experiment. For a corrected
+checkpoint sanity test, use `audit_model_protocol`, which scores joint C3
+predictions against shifted targets from the same joint encoder call.
 
 Example commands (the checkpoint paths are local and are not committed):
 
@@ -76,11 +91,13 @@ COMMON="--dataset-root datasets/vla_jepa_libero130_v3 \
   --clip-batch-size 6 --device cuda"
 
 PYTHONPATH=$PWD conda run -n VLA_JEPA python -m latent_world_model.evaluation.runner \
-  $COMMON --output evaluation_outputs/stage1 --conditions S0 S1 S2 S3 S4 S5 S6 S7 S8 S9
+  $COMMON --output evaluation_outputs/stage1 --conditions S0 S1 S2 S3 S4 S5 S6 S7 S8 S9 \
+  --allow-legacy-misaligned-h3
 
 PYTHONPATH=$PWD conda run -n VLA_JEPA python -m latent_world_model.evaluation.runner \
   $COMMON --output evaluation_outputs/formal_shard0 --conditions F0 F1 F2 F3 F4 F5 \
-  --rollouts-per-task 5 --num-shards 4 --shard-id 0
+  --rollouts-per-task 5 --num-shards 4 --shard-id 0 \
+  --allow-legacy-misaligned-h3
 
 # Launch shard ids 1, 2, and 3 in separate terminals/processes. Each shard
 # writes its own JSONL/memmaps; then merge without loading latent tensors:
@@ -98,6 +115,11 @@ row, and stores compact float16 summary embeddings in NumPy memmaps for
 retrieval metrics. Re-running the same command skips completed pairs. The
 output includes `config.json`, checkpoint load status, metrics, summaries,
 plots, and `report.md`.
+
+The opt-in flag above is shown solely so historical outputs remain
+reproducible. Do not use those H3 rows as evidence for exact temporal
+conditioning. New audits should omit H3 or collect/action-condition data at a
+time grid divisible by the encoder tubelet stride.
 
 ## Deep analysis and report
 
