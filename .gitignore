@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+
+# Local model weights and links to them are environment-specific artifacts.
+checkpoints/
+
+# Generated rollout datasets are large, reproducible evaluation artifacts.
+datasets/
+
+# Keep the lightweight, shareable v3 dataset contract under version control.
+!datasets/
+datasets/*
+!datasets/vla_jepa_libero130_v3/
+datasets/vla_jepa_libero130_v3/*
+!datasets/vla_jepa_libero130_v3/README.md
+!datasets/vla_jepa_libero130_v3/manifest.json
+
+# Evaluation indices, caches, logs, and result tables are reproducible local outputs.
+evaluation_outputs/

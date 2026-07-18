@@ -1,0 +1,4 @@
+torch>=2.1
+transformers>=4.57.0
+timm>=1.0.0
+h5py>=3.8.0  # streamed LIBERO evaluation; not imported by the model-only path
