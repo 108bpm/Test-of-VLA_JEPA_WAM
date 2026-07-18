@@ -6,10 +6,26 @@ from pathlib import Path
 import torch
 
 from latent_world_model import LatentWorldModel, evaluate_latent_prediction
+from latent_world_model.evaluation.report import _bootstrap_hierarchical
 from latent_world_model.evaluation.runner import CONDITION_SPECS, RunnerConfig, _run_condition, run_evaluation
 
 
 class LatentSequenceAlignmentTest(unittest.TestCase):
+    def test_bootstrap_preserves_rollout_stage_clusters(self):
+        rows = [
+            {"row_id": "suite/task000/episode000/early", "suite": "suite", "task_id": 0, "episode_id": 0},
+            {"row_id": "suite/task000/episode000/late", "suite": "suite", "task_id": 0, "episode_id": 0},
+            {"row_id": "suite/task000/episode002/early", "suite": "suite", "task_id": 0, "episode_id": 2},
+            {"row_id": "suite/task000/episode002/late", "suite": "suite", "task_id": 0, "episode_id": 2},
+        ]
+        values = {row["row_id"]: float(index) for index, row in enumerate(rows)}
+
+        result = _bootstrap_hierarchical(rows, values, seed=7, replicates=20)
+
+        self.assertEqual(result["n_tasks"], 1)
+        self.assertEqual(result["n_rollouts"], 2)
+        self.assertEqual(result["mean"], 1.5)
+
     def test_context_targets_are_one_step_shifted(self):
         """The predictor's context-length output must match the teacher target."""
         model = object.__new__(LatentWorldModel)
@@ -84,6 +100,35 @@ class LatentSequenceAlignmentTest(unittest.TestCase):
         self.assertEqual(metrics["h1_mse"], 1.0)
         self.assertEqual(metrics["h2_mse"], 4.0)
         self.assertEqual(metrics["h3_mse"], 9.0)
+
+    def test_joint_c3_scores_complete_shifted_teacher_target(self):
+        class IdentityPredictor:
+            @staticmethod
+            def predict_from_latents(context, actions):
+                return context
+
+        joint_blocks = [torch.full((2, 3), float(index)) for index in range(4)]
+        groups = [torch.full((8, 3), float(index)) for index in range(3)]
+
+        metrics = _run_condition(
+            IdentityPredictor(),
+            "J0",
+            CONDITION_SPECS["J0"],
+            joint_blocks,
+            joint_blocks,
+            groups,
+            None,
+            joint_blocks,
+            device=torch.device("cpu"),
+        )
+
+        # Identity predicts z0,z1,z2 against the native shifted target
+        # z1,z2,z3, so every transition and the aggregate have unit MSE.
+        self.assertEqual(metrics["mse"], 1.0)
+        self.assertEqual(metrics["h1_mse"], 1.0)
+        self.assertEqual(metrics["h2_mse"], 1.0)
+        self.assertEqual(metrics["h3_mse"], 1.0)
+        self.assertEqual(metrics["persistence_ratio"], 1.0)
 
 
 if __name__ == "__main__":

@@ -53,6 +53,37 @@ CONDITION_SPECS: Mapping[str, Mapping[str, object]] = {
     "F3": {"protocol": "strict_causal", "context": 1, "horizon": 1, "action": "zero", "view": "both"},
     "F4": {"protocol": "strict_causal", "context": 1, "horizon": 1, "action": "shuffled", "view": "both"},
     "F5": {"protocol": "original_joint", "context": 1, "horizon": 1, "action": "correct", "view": "both"},
+    # Native checkpoint objective.  Unlike F5/X0, both context and shifted
+    # targets come from the same joint 8-frame encoder call.  ``horizon=3``
+    # denotes the three teacher-forced transition positions, not an
+    # autoregressive rollout beyond the encoded clip.
+    "J0": {
+        "protocol": "original_joint",
+        "target_protocol": "same_joint_shifted",
+        "mode": "teacher_forcing",
+        "context": 3,
+        "horizon": 3,
+        "action": "correct",
+        "view": "both",
+    },
+    "J1": {
+        "protocol": "original_joint",
+        "target_protocol": "same_joint_shifted",
+        "mode": "teacher_forcing",
+        "context": 3,
+        "horizon": 3,
+        "action": "shuffled",
+        "view": "both",
+    },
+    "J2": {
+        "protocol": "original_joint",
+        "target_protocol": "same_joint_shifted",
+        "mode": "teacher_forcing",
+        "context": 3,
+        "horizon": 3,
+        "action": "zero",
+        "view": "both",
+    },
 }
 
 
@@ -265,6 +296,55 @@ def _predict_h1(
     return values, prediction
 
 
+def _predict_teacher_forcing(
+    model: LatentWorldModel,
+    context_blocks: Sequence[torch.Tensor],
+    action_groups: Sequence[torch.Tensor],
+    target_blocks: Sequence[torch.Tensor],
+    *,
+    device: torch.device,
+) -> Tuple[Dict[str, float], List[torch.Tensor]]:
+    """Score all three native joint-C3 transition positions.
+
+    The source objective consumes ``z0,z1,z2`` and ``g0,g1,g2`` in one
+    predictor call and compares its complete output with ``z1,z2,z3`` from
+    the same joint encoder call.  Persistence metrics use each transition's
+    own predecessor rather than reusing a single current block.
+    """
+    if len(context_blocks) != 3 or len(action_groups) != 3 or len(target_blocks) != 3:
+        raise ValueError("teacher-forcing evaluation requires exactly three context/action/target blocks")
+    patch_count = context_blocks[0].shape[0]
+    if any(block.shape != context_blocks[0].shape for block in [*context_blocks, *target_blocks]):
+        raise ValueError("teacher-forcing latent blocks must have identical shapes")
+    context = torch.cat(list(context_blocks), dim=0).unsqueeze(0).to(device)
+    actions = torch.cat(list(action_groups), dim=0).unsqueeze(0).to(device)
+    target = torch.cat(list(target_blocks), dim=0).unsqueeze(0).to(device)
+    with torch.inference_mode():
+        output = model.predict_from_latents(context, actions)
+    if output.shape != target.shape:
+        raise ValueError(f"teacher-forcing prediction/target shape mismatch: {output.shape} != {target.shape}")
+
+    result: Dict[str, float] = {}
+    aggregate = compute_prediction_metrics(output, target, context)
+    for key, value in aggregate.items():
+        result[key] = float(value[0].detach().cpu())
+    predictions: List[torch.Tensor] = []
+    for step in range(3):
+        start = step * patch_count
+        end = start + patch_count
+        values = compute_prediction_metrics(
+            output[:, start:end],
+            target[:, start:end],
+            context[:, start:end],
+        )
+        for key, value in values.items():
+            result[f"h{step + 1}_{key}"] = float(value[0].detach().cpu())
+        predictions.append(output[0, start:end].detach().to("cpu", dtype=torch.float16))
+    result["prediction_summary"] = predictions[-1].float().mean(dim=0)
+    result["target_summary"] = target_blocks[-1].float().mean(dim=0)
+    return result, predictions
+
+
 def _predict_ar(
     model: LatentWorldModel,
     initial_context: Sequence[torch.Tensor],
@@ -339,6 +419,17 @@ def _run_condition(
     cur, nxt = _condition_action_data(
         spec, current_groups, next_groups, partner_groups=partner_groups, offset_groups=offset_groups
     )
+    if str(spec.get("mode", "forecast")) == "teacher_forcing":
+        if str(spec["protocol"]) != "original_joint" or context_steps != 3:
+            raise ValueError("teacher-forcing mode requires original_joint C3")
+        values, _ = _predict_teacher_forcing(
+            model,
+            list(blocks[:3]),
+            cur,
+            list(truth_blocks[1:4]),
+            device=device,
+        )
+        return values
     if horizon == 1:
         # The current state is z2 and the target is z3 for both C1 and C3;
         # C3 additionally receives z0,z1 as historical context.
@@ -451,6 +542,7 @@ def run_evaluation(config: RunnerConfig) -> dict:
         for condition in config.conditions
         if int(CONDITION_SPECS[condition]["horizon"]) == 3
         and int(CONDITION_SPECS[condition]["context"]) == 3
+        and str(CONDITION_SPECS[condition].get("mode", "forecast")) != "teacher_forcing"
     ]
     if h3_conditions and not config.allow_legacy_misaligned_h3:
         raise ValueError(
@@ -521,7 +613,11 @@ def run_evaluation(config: RunnerConfig) -> dict:
                 endpoints = sorted({int(row["query_frame"]) + 2 * (j + 1) for row in record_rows for j in range(CAUSAL_BLOCKS_FOR_H3)})
                 strict_by_view: Dict[str, Dict[int, torch.Tensor]] = {}
                 needed_views = {str(CONDITION_SPECS[c]["view"]) for c in config.conditions if str(CONDITION_SPECS[c]["protocol"]) == "strict_causal"}
-                if any(str(CONDITION_SPECS[c]["protocol"]) == "original_joint" for c in config.conditions):
+                if any(
+                    str(CONDITION_SPECS[c]["protocol"]) == "original_joint"
+                    and str(CONDITION_SPECS[c].get("target_protocol", "strict_causal")) != "same_joint_shifted"
+                    for c in config.conditions
+                ):
                     # Original-joint inputs are scored against their strict
                     # causal target, so the two-view strict target is needed
                     # even when no strict condition was requested explicitly.
@@ -587,19 +683,28 @@ def run_evaluation(config: RunnerConfig) -> dict:
                         spec = CONDITION_SPECS[condition]
                         view = str(spec["view"])
                         strict_blocks = strict_blocks_by_view.get(view)
-                        if strict_blocks is None:
-                            raise RuntimeError(f"missing encoded view {view}")
                         joint_blocks = joint_by_row.get(row_id)
+                        target_protocol = str(spec.get("target_protocol", "strict_causal"))
+                        if target_protocol == "same_joint_shifted":
+                            if joint_blocks is None:
+                                raise RuntimeError("missing joint blocks for same-joint target")
+                            target_blocks = joint_blocks
+                            model_strict_blocks = strict_blocks or joint_blocks
+                        else:
+                            if strict_blocks is None:
+                                raise RuntimeError(f"missing encoded view {view}")
+                            target_blocks = strict_blocks
+                            model_strict_blocks = strict_blocks
                         try:
                             values = _run_condition(
                                 model,
                                 condition,
                                 spec,
-                                strict_blocks,
+                                model_strict_blocks,
                                 joint_blocks,
                                 current_groups,
                                 next_groups,
-                                strict_blocks,
+                                target_blocks,
                                 device=device,
                                 partner_groups=partner_groups,
                                 offset_groups=offset_groups,
@@ -616,18 +721,23 @@ def run_evaluation(config: RunnerConfig) -> dict:
                                     "horizon": int(spec["horizon"]),
                                     "action_mode": str(spec["action"]),
                                     "view": view,
+                                    "evaluation_mode": str(spec.get("mode", "forecast")),
+                                    "target_protocol": target_protocol,
                                     "h3_schedule": (
+                                        "teacher_forcing_shifted"
+                                        if str(spec.get("mode", "forecast")) == "teacher_forcing"
+                                        else
                                         "legacy_next_query"
                                         if int(spec["horizon"]) == 3 and config.allow_legacy_misaligned_h3
                                         else str(spec.get("h3_schedule", "not_applicable"))
                                     ),
                                     "target_delta_rms": _summarize_target(
-                                        strict_blocks,
-                                        strict_blocks[0]
+                                        target_blocks,
+                                        target_blocks[0]
                                         if int(spec["horizon"]) == 3
                                         and int(spec["context"]) == 1
                                         and not config.allow_legacy_misaligned_h3
-                                        else strict_blocks[2],
+                                        else target_blocks[2],
                                     ),
                                     "timestamp": time.time(),
                                 }

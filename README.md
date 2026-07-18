@@ -47,12 +47,12 @@ loss = (predicted - target).abs().mean()
 
 For the default VLA-JEPA-compatible configuration it is `[B, 24, 2048]`: 3 context latent steps × 8 action tokens/step. Tokens at context step *i* condition the transition from `z_i` to `z_(i+1)`. They may come from a language model, a policy network, a learned action tokenizer, or any other module.
 
-The supplied VLA-JEPA checkpoint needs an important qualification: its 24
-world-model tokens are Qwen hidden states at `<|action_i|>` slots. The policy's
-actual 7-step action chunk is generated from a separate set of
-`<|embodied_action|>` slots by a stochastic flow-matching head. The 24 tokens
-are aligned with the same policy query, but they are **not** a deterministic
-encoding of the action chunk. See the full
+For the supplied VLA-JEPA checkpoint, the 24 world-model tokens are Qwen
+hidden states at `<|action_i|>` slots.  They are the native learned
+action-conditioning representation used by both source training and this
+package's evaluation; no one-to-one reconstruction of the policy's stochastic
+7-step action chunk is required.  The representation semantics and empirical
+shuffle controls are documented in
 [`EXPERIMENT_AUDIT_REPORT.md`](EXPERIMENT_AUDIT_REPORT.md).
 
 For projects that already produce V-JEPA latent tensors, skip video encoding:
@@ -93,6 +93,13 @@ alignment, deterministic LIBERO replay, live latent-token recomputation,
 training-view fusion analysis, and corrected training-matched diagnostics—is
 recorded in [`EXPERIMENT_AUDIT_REPORT.md`](EXPERIMENT_AUDIT_REPORT.md). It
 supersedes the old report wherever protocol validity is discussed.
+
+The final integrated interpretation is [`FINAL_REPORT.md`](FINAL_REPORT.md).
+It combines the first 130×5 strict-causal experiment, the audit evidence, and
+the second complete 130×5 joint-C3 teacher-forcing experiment.  The second
+experiment alone is documented in
+[`SECOND_EXPERIMENT_REPORT.md`](SECOND_EXPERIMENT_REPORT.md), and the report/
+data retention index is [`reports/README.md`](reports/README.md).
 
 For a result-free description of the collection logic, variables, formal
 conditions, staged experiment funnel, and statistical rules, see

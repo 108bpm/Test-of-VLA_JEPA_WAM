@@ -33,12 +33,15 @@ def _bootstrap_hierarchical(
     seed: int,
     replicates: int,
 ) -> Dict[str, float]:
-    """Task -> rollout hierarchical bootstrap for a scalar per-rollout value."""
-    by_task: Dict[str, List[float]] = defaultdict(list)
+    """Task -> rollout cluster bootstrap while retaining all stage windows."""
+    by_task: Dict[str, Dict[str, List[float]]] = defaultdict(lambda: defaultdict(list))
     for row in rows:
         row_id = str(row["row_id"])
         if row_id in values and np.isfinite(values[row_id]):
-            by_task[f"{row['suite']}/task{int(row['task_id']):03d}"].append(float(values[row_id]))
+            task_key = f"{row['suite']}/task{int(row['task_id']):03d}"
+            episode_id = int(row.get("episode_id", row_id.split("/episode", 1)[1].split("/", 1)[0]))
+            rollout_key = f"episode{episode_id:03d}"
+            by_task[task_key][rollout_key].append(float(values[row_id]))
     if not by_task:
         return {"n_tasks": 0, "n_rollouts": 0, "mean": float("nan"), "ci95_low": float("nan"), "ci95_high": float("nan"), "p_two_sided": float("nan")}
     rng = np.random.default_rng(seed)
@@ -48,16 +51,27 @@ def _bootstrap_hierarchical(
         sampled_tasks = rng.choice(tasks, size=len(tasks), replace=True)
         sampled_values = []
         for task in sampled_tasks:
-            rollouts = by_task[task]
-            sampled_values.extend(rng.choice(rollouts, size=len(rollouts), replace=True).tolist())
+            rollout_keys = sorted(by_task[task])
+            sampled_rollouts = rng.choice(rollout_keys, size=len(rollout_keys), replace=True)
+            for rollout in sampled_rollouts:
+                sampled_values.extend(by_task[task][str(rollout)])
         estimates[i] = np.mean(sampled_values)
-    observed = float(np.mean([value for values_ in by_task.values() for value in values_]))
+    observed = float(
+        np.mean(
+            [
+                value
+                for task_rollouts in by_task.values()
+                for rollout_values in task_rollouts.values()
+                for value in rollout_values
+            ]
+        )
+    )
     p = 2.0 * min(float(np.mean(estimates <= 0.0)), float(np.mean(estimates >= 0.0))) if observed != 0 else 1.0
     # The sign probability above is appropriate for paired differences centered
     # at zero; for ordinary means retain a descriptive NaN p-value.
     return {
         "n_tasks": len(tasks),
-        "n_rollouts": sum(len(v) for v in by_task.values()),
+        "n_rollouts": sum(len(task_rollouts) for task_rollouts in by_task.values()),
         "mean": observed,
         "ci95_low": float(np.percentile(estimates, 2.5)),
         "ci95_high": float(np.percentile(estimates, 97.5)),
@@ -69,7 +83,15 @@ def _paired_values(rows_a: Sequence[dict], rows_b: Sequence[dict], key: str) -> 
     a = {str(row["row_id"]): float(row[key]) for row in rows_a if key in row and np.isfinite(row[key])}
     b = {str(row["row_id"]): float(row[key]) for row in rows_b if key in row and np.isfinite(row[key])}
     common = sorted(set(a) & set(b))
-    synthetic = [{"row_id": row_id, "suite": row_id.split("/", 1)[0], "task_id": int(row_id.split("/task", 1)[1].split("/", 1)[0])} for row_id in common]
+    synthetic = [
+        {
+            "row_id": row_id,
+            "suite": row_id.split("/", 1)[0],
+            "task_id": int(row_id.split("/task", 1)[1].split("/", 1)[0]),
+            "episode_id": int(row_id.split("/episode", 1)[1].split("/", 1)[0]),
+        }
+        for row_id in common
+    ]
     return synthetic, {row_id: a[row_id] - b[row_id] for row_id in common}
 
 
@@ -103,7 +125,9 @@ def _retrieval(pred_path: Path, target_path: Path, valid_path: Path) -> Dict[str
         similarity = pred[start : start + 256] @ target_t
         order = np.argpartition(-similarity, kth=min(4, n - 1), axis=1)[:, : min(5, n)]
         labels = np.arange(start, min(start + 256, n))
-        top1 += int(np.sum(order[:, 0] == labels))
+        candidate_scores = np.take_along_axis(similarity, order, axis=1)
+        top1_indices = order[np.arange(order.shape[0]), candidate_scores.argmax(axis=1)]
+        top1 += int(np.sum(top1_indices == labels))
         top5 += int(np.sum(np.any(order == labels[:, None], axis=1)))
     return {"n": n, "top1": top1 / n, "top5": top5 / n}
 
@@ -140,9 +164,9 @@ def _plot(summary: Mapping[str, object], output_dir: Path) -> List[str]:
         for name in horizon_names:
             curve = aggregates[name].get("horizon_mse", {})
             ax.plot([1, 2, 3], [curve.get(str(i), np.nan) for i in [1, 2, 3]], marker="o", label=name)
-        ax.set_xlabel("Prediction horizon")
+        ax.set_xlabel("Transition position / prediction horizon")
         ax.set_ylabel("MSE")
-        ax.set_title("Autoregressive error growth")
+        ax.set_title("Per-position latent prediction error")
         ax.grid(alpha=0.25)
         ax.legend()
         fig.tight_layout()
@@ -161,18 +185,41 @@ def generate_report(results_dir: str | Path, *, bootstrap_replicates: int = 1000
         by_condition[str(row["condition"])].append(row)
     conditions: Dict[str, dict] = {}
     for condition, condition_rows in sorted(by_condition.items()):
-        metrics = {"n": len(condition_rows), "horizon": int(condition_rows[0].get("horizon", 1))}
+        metrics = {
+            "n": len(condition_rows),
+            "horizon": int(condition_rows[0].get("horizon", 1)),
+            "evaluation_mode": str(condition_rows[0].get("evaluation_mode", "forecast")),
+            "target_protocol": str(condition_rows[0].get("target_protocol", "strict_causal")),
+        }
         for key in ("mse", "l1", "rmse", "persistence_ratio", "mean_token_cosine", "delta_cosine", "delta_norm_ratio", "prediction_variance_ratio", "normalized_mse"):
             value = _mean(condition_rows, key)
             if value is not None:
                 metrics[key] = value
         horizon_mse = {}
+        transition_metrics = {}
         for h in (1, 2, 3):
-            value = _mean(condition_rows, f"h{h}_mse")
-            if value is not None:
-                horizon_mse[str(h)] = value
+            position = {}
+            for key in ("mse", "l1", "rmse", "persistence_ratio", "mean_token_cosine"):
+                value = _mean(condition_rows, f"h{h}_{key}")
+                if value is not None:
+                    position[key] = value
+            if "mse" in position:
+                horizon_mse[str(h)] = position["mse"]
+                values = {str(row["row_id"]): float(row[f"h{h}_mse"]) for row in condition_rows}
+                stable_offset = sum((i + 1) * ord(char) for i, char in enumerate(condition)) % 10000
+                ci = _bootstrap_hierarchical(
+                    condition_rows,
+                    values,
+                    seed=seed + stable_offset + h * 10000,
+                    replicates=bootstrap_replicates,
+                )
+                position["mse_ci95_low"] = ci["ci95_low"]
+                position["mse_ci95_high"] = ci["ci95_high"]
+            if position:
+                transition_metrics[str(h)] = position
         if horizon_mse:
             metrics["horizon_mse"] = horizon_mse
+            metrics["transition_metrics"] = transition_metrics
         # Hierarchical bootstrap CI for the ordinary condition mean.
         if "mse" in metrics:
             values = {str(row["row_id"]): float(row["mse"]) for row in condition_rows}
@@ -199,6 +246,20 @@ def generate_report(results_dir: str | Path, *, bootstrap_replicates: int = 1000
         if left in by_condition and right in by_condition:
             paired_rows, values = _paired_values(by_condition[left], by_condition[right], "mse")
             stat = _bootstrap_hierarchical(paired_rows, values, seed=seed + len(comparisons) + 2, replicates=bootstrap_replicates)
+            comparisons[f"{left}-{right}"] = stat
+            p_values[f"{left}-{right}"] = stat["p_two_sided"]
+    # Native joint-C3 controls are paired on the exact same windows.  J1
+    # replaces the learned action condition with a same-task/stage partner;
+    # J2 uses an out-of-distribution all-zero condition.
+    for left, right in (("J1", "J0"), ("J2", "J0")):
+        if left in by_condition and right in by_condition:
+            paired_rows, values = _paired_values(by_condition[left], by_condition[right], "mse")
+            stat = _bootstrap_hierarchical(
+                paired_rows,
+                values,
+                seed=seed + len(comparisons) + 20,
+                replicates=bootstrap_replicates,
+            )
             comparisons[f"{left}-{right}"] = stat
             p_values[f"{left}-{right}"] = stat["p_two_sided"]
     comparisons_holm = _holm(p_values)
@@ -234,17 +295,27 @@ def generate_report(results_dir: str | Path, *, bootstrap_replicates: int = 1000
         "",
         "## 条件汇总",
         "",
-        "| 条件 | n | horizon | MSE | 95% CI | persistence ratio | token cosine | retrieval top1/top5 |",
-        "|---|---:|---:|---:|---|---:|---:|---:|",
+        "| 条件 | n | mode/target | MSE | 95% CI | persistence ratio | token cosine | retrieval top1/top5 |",
+        "|---|---:|---|---:|---|---:|---:|---:|",
     ]
     for name, metrics in conditions.items():
         ci = f"[{metrics.get('mse_ci95_low', float('nan')):.4f}, {metrics.get('mse_ci95_high', float('nan')):.4f}]"
         retrieval = metrics.get("retrieval", {})
-        lines.append(f"| {name} | {metrics.get('n', 0)} | {metrics.get('horizon', '')} | {metrics.get('mse', float('nan')):.4f} | {ci} | {metrics.get('persistence_ratio', float('nan')):.4f} | {metrics.get('mean_token_cosine', float('nan')):.4f} | {retrieval.get('top1', float('nan')):.4f}/{retrieval.get('top5', float('nan')):.4f} |")
+        mode_target = f"{metrics.get('evaluation_mode', '')}/{metrics.get('target_protocol', '')}"
+        lines.append(f"| {name} | {metrics.get('n', 0)} | {mode_target} | {metrics.get('mse', float('nan')):.4f} | {ci} | {metrics.get('persistence_ratio', float('nan')):.4f} | {metrics.get('mean_token_cosine', float('nan')):.4f} | {retrieval.get('top1', float('nan')):.4f}/{retrieval.get('top5', float('nan')):.4f} |")
     lines += ["", "## 预注册配对比较", "", "| 比较（左−右，负值更好） | mean | 95% CI | Holm p |", "|---|---:|---|---:|"]
     for name, stat in comparisons.items():
         lines.append(f"| {name} | {stat.get('mean', float('nan')):.4f} | [{stat.get('ci95_low', float('nan')):.4f}, {stat.get('ci95_high', float('nan')):.4f}] | {stat.get('p_holm', float('nan')):.4f} |")
-    lines += ["", "## 解读规则", "", "- `persistence_ratio < 1` 表示优于保持当前 latent 的基线；`history_gain` 和 `action_gain` 由配对 MSE 差异计算。", "- H3 条件同时报告 H1/H2/H3，不能把 H3 的最后一步误读为 direct multi-horizon head；这里是冻结 predictor 的自回归滚动。", "- `original_joint` 使用联合 8 帧编码作为输入，但统一用 strict-causal target 比较，用于暴露未来帧泄漏。", "- 分层表和图表位于同一结果目录；若某条件缺失，报告保留为空而不替换实验定义。", ""]
+    lines += [
+        "",
+        "## 解读规则",
+        "",
+        "- `persistence_ratio < 1` 表示优于保持当前 latent 的基线；配对条件差异按完全相同的 window 计算。",
+        "- 历史 F2/S2 等 H3 条件是冻结 predictor 的自回归滚动；J0/J1/J2 的 H1/H2/H3 则是同一次 joint-C3 teacher-forcing 调用中的三个 transition 位置，二者不能混读。",
+        "- F5/X0 的 `original_joint` 输入对 strict-causal target；J0/J1/J2 明确使用同一次 joint encoding 的 shifted target `z1,z2,z3`，用于复现 checkpoint 原生训练目标。",
+        "- 分层表和图表位于同一结果目录；若某条件缺失，报告保留为空而不替换实验定义。",
+        "",
+    ]
     (output_dir / "report.md").write_text("\n".join(lines), encoding="utf-8")
     return summary
 

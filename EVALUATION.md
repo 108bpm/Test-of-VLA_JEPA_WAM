@@ -81,6 +81,49 @@ These names describe the completed historical experiment. For a corrected
 checkpoint sanity test, use `audit_model_protocol`, which scores joint C3
 predictions against shifted targets from the same joint encoder call.
 
+## Native joint-C3 supplemental evaluation
+
+The finalized checkpoint-sanity experiment uses the same 650 rollouts and
+1950 early/middle/late windows as Stage 2 and reproduces the intended native
+joint-C3 teacher-forcing tensor contract:
+
+```text
+one joint 8-frame encoding -> z0,z1,z2,z3
+context                    = z0,z1,z2
+latent action              = g0,g1,g2 (24 tokens)
+target                     = z1,z2,z3 from that same encoder call
+```
+
+`J0` uses the aligned latent action, `J1` substitutes the deterministic
+same-task/same-stage action from another episode, and `J2` uses all-zero
+tokens.  Each condition reports the aggregate loss over all three transition
+positions and separate `h1/h2/h3` fields.  In these J* rows, those suffixes
+mean teacher-forcing position 1/2/3, not an autoregressive forecast horizon.
+
+```bash
+PYTHONPATH=$PWD conda run --no-capture-output -n VLA_JEPA \
+  python -m latent_world_model.evaluation.runner \
+  --dataset-root datasets/vla_jepa_libero130_v3 \
+  --index evaluation_outputs/stage0/index.jsonl \
+  --encoder checkpoints/vjepa2-vitl-fpc64-256 \
+  --checkpoint ../VLA-JEPA/checkpoints/VLA-JEPA/LIBERO/checkpoints/VLA-JEPA-LIBERO.pt \
+  --output evaluation_outputs/joint_c3_full \
+  --conditions J0 J1 J2 \
+  --rollouts-per-task 5 --clip-batch-size 3 --device cuda
+
+MPLCONFIGDIR=/tmp/lwm_mpl PYTHONPATH=$PWD \
+  conda run --no-capture-output -n VLA_JEPA \
+  python -m latent_world_model.evaluation.report \
+  evaluation_outputs/joint_c3_full --bootstrap-replicates 1000
+```
+
+This supplemental experiment answers whether the released predictor learned
+its own joint-C3 objective.  Because the joint encoder sees the complete
+8-frame clip, it is not evidence for strict past-only future prediction.
+Multi-view features use the standalone module's deterministic per-sample
+fusion; the batch-dependent legacy fusion behavior is audited separately and
+is not expanded into a physical per-episode result.
+
 Example commands (the checkpoint paths are local and are not committed):
 
 ```bash
