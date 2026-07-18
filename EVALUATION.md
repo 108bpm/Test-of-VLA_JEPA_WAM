@@ -1,5 +1,9 @@
 # VLA-JEPA × LIBERO latent prediction evaluation
 
+The high-level, result-free experiment framework is documented in
+[`EXPERIMENT_FRAMEWORK.md`](EXPERIMENT_FRAMEWORK.md). This file records the
+implementation-oriented evaluation details and commands.
+
 This evaluation is representation-space only. V-JEPA2 is an encoder/teacher;
 there is no compatible public latent-to-RGB decoder. The predictor and encoder
 are never trained or fine-tuned by these commands.

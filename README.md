@@ -80,6 +80,11 @@ and figures generated from the formal half-dataset run, is in
 under `evaluation_outputs/deep_analysis/` and are intentionally kept out of
 Git because they are derived from large local results.
 
+For a result-free description of the collection logic, variables, formal
+conditions, staged experiment funnel, and statistical rules, see
+[`EXPERIMENT_FRAMEWORK.md`](EXPERIMENT_FRAMEWORK.md). It intentionally omits
+implementation-specific commands and code.
+
 V-JEPA2 has **no pixel decoder**. The checked upstream implementation (`vjepa2`, commit `204698b`) contains an encoder and a latent predictor only: its training target is the frozen teacher encoder's patch features, not RGB pixels. Consequently, neither `facebook/vjepa2-vitl-fpc64-256` nor the upstream `vitl.pt` checkpoint contains a compatible latent-to-pixel decoder. There is no official decoder checkpoint to download for this encoder.
 
 Use representation-space evaluation first:
