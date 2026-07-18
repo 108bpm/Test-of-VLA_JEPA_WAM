@@ -1,4 +1,4 @@
-# latent_world_model × VLA-JEPA × LIBERO 深度分析报告
+# latent_world_model × VLA-JEPA × LIBERO 汇报版综合报告
 
 > 本报告基于已采集的 v3 数据集、阶段 0/1 筛选结果、X0 补充对照和正式半量（130×5）结果生成。所有模型权重被冻结，没有重新训练 encoder 或 predictor；分析脚本只读取输入文件。
 
@@ -39,12 +39,6 @@ LIBERO-90 的成功率明显较低（约 20%），但这是采集结果而不是
 | libero_goal | 50 | 50 | 1.0000 | 107.8400 | 15.8600 |
 | libero_90 | 450 | 96 | 0.2133 | 354.0400 | 51.3400 |
 | libero_10 | 50 | 50 | 1.0000 | 245.4200 | 35.5200 |
-
-### 2.1 采集过程、迁移和修复
-
-采集阶段曾尝试多进程 rollout；出现 worker 停滞、进程被系统终止以及同一逻辑 task/episode 的重复文件后，先停止后台 server，再对已有结果做迁移和逐条校验。最终方案没有把问题数据全部推倒重采，而是以有效 HDF5/video 为输入，按 `(task_suite, task_id, episode_id)` 去重，修复状态匹配和索引关系，再生成 v3 canonical 目录。这样保留了已经完成的有效 rollout，也避免重复采集带来的不确定性。
-
-最终检查同时打开全部 HDF5，验证必需 dataset、形状、`num_frames`、query/token/action 数量和有限值；再检查每条记录恰好有一个 success/failure 状态一致的视频，并确认没有活动 writer。`manifest.json` 和数据集 README 记录了这份最终契约；本报告的 collection 表是对同一批文件的再次流式核对。
 
 ## 3. 实验设计与可复现性
 
