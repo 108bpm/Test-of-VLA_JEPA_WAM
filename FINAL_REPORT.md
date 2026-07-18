@@ -1,5 +1,8 @@
 # latent_world_model 评估最终报告
 
+> 详细的数据采集、实验漏斗、分层统计、图像和 CSV 见
+> [`COMPREHENSIVE_REPORT.md`](COMPREHENSIVE_REPORT.md)。本文件保留正式结论的简表。
+
 ## 结论先行
 
 在冻结的 VLA-JEPA LIBERO predictor 和冻结的 V-JEPA2 encoder 上，严格因果协议的正式结果没有优于 persistence baseline：F0 的平均 `persistence_ratio=1.428`，MSE 为 6.274，而保持当前 latent 的对应误差更低。当前 checkpoint 的 action 条件在本数据上没有可检测的正向贡献；zero-action 反而小幅降低误差，same-task/stage shuffle 与正确 action 几乎相同。C3 历史上下文也没有改善 H1，反而使 MSE 增加约 0.271。原始 8 帧联合编码 F5 的 MSE 降到 5.133、`persistence_ratio=0.538`，但该协议明确包含未来帧信息，不能作为无泄漏能力结论。

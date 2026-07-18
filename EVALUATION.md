@@ -95,6 +95,29 @@ retrieval metrics. Re-running the same command skips completed pairs. The
 output includes `config.json`, checkpoint load status, metrics, summaries,
 plots, and `report.md`.
 
+## Deep analysis and report
+
+After the formal half run has been merged and the stage-1/X0 outputs exist,
+generate the collection statistics, paired effects, strata, correlations,
+figures, and the machine-readable `deep_summary.json` with:
+
+```bash
+MPLCONFIGDIR=/tmp/lwm_mpl PYTHONPATH=$PWD \
+  conda run --no-capture-output -n VLA_JEPA \
+  python -m latent_world_model.evaluation.deep_analysis \
+  --dataset-root datasets/vla_jepa_libero130_v3 \
+  --formal-metrics evaluation_outputs/formal_half/metrics.jsonl \
+  --screening-metrics evaluation_outputs/stage1/metrics.jsonl \
+  --supplemental-metrics evaluation_outputs/stage1_supplemental/metrics.jsonl \
+  --output evaluation_outputs/deep_analysis \
+  --bootstrap-replicates 1000
+```
+
+The tracked interpretation is [`COMPREHENSIVE_REPORT.md`](COMPREHENSIVE_REPORT.md);
+the generated report and CSV/PNG artifacts are in the output directory. The
+script streams all 1300 HDF5 records and never loads the video frames or latent
+memmaps into one large array.
+
 ## Metrics and inference rules
 
 Primary metrics are MSE, `persistence_ratio` (MSE divided by keeping `z2`),

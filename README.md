@@ -73,6 +73,13 @@ The finalized VLA-JEPA × LIBERO rollout dataset is documented in
 It provides 1300 validated multi-view rollouts, aligned latent action tokens,
 executed actions, and matching videos for evaluating this model.
 
+The detailed collection-to-results analysis, including reproducible CSV tables
+and figures generated from the formal half-dataset run, is in
+[`COMPREHENSIVE_REPORT.md`](COMPREHENSIVE_REPORT.md). The analysis entry point is
+`latent_world_model.evaluation.deep_analysis`; its generated artifacts live
+under `evaluation_outputs/deep_analysis/` and are intentionally kept out of
+Git because they are derived from large local results.
+
 V-JEPA2 has **no pixel decoder**. The checked upstream implementation (`vjepa2`, commit `204698b`) contains an encoder and a latent predictor only: its training target is the frozen teacher encoder's patch features, not RGB pixels. Consequently, neither `facebook/vjepa2-vitl-fpc64-256` nor the upstream `vitl.pt` checkpoint contains a compatible latent-to-pixel decoder. There is no official decoder checkpoint to download for this encoder.
 
 Use representation-space evaluation first:

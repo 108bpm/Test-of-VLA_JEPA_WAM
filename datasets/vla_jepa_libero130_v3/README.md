@@ -17,7 +17,7 @@ collection configuration.
 | `libero_goal` | 100 | 100 | 100.00% |
 | `libero_90` | 900 | 182 | 20.22% |
 | `libero_10` | 100 | 98 | 98.00% |
-| **Total** | **1300** | **480** | **36.92%** |
+| **Total** | **1300** | **580** | **44.62%** |
 
 There are exactly 1300 complete HDF5 records and 1300 matching MP4 videos.
 Each HDF5 is unique by `(task_suite, task_id, episode_id)`; no duplicate keys,

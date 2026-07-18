@@ -5,6 +5,8 @@
   "rollout_identity": ["task_suite", "task_id", "episode_id"],
   "total_rollouts": 1300,
   "total_videos": 1300,
+  "total_successes": 580,
+  "total_success_rate": 0.446154,
   "storage_bytes": {
     "records": 57252202754,
     "videos": 252080903
