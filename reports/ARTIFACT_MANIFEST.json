@@ -1,6 +1,6 @@
 {
   "format_version": 1,
-  "generated_utc": "2026-07-18T15:00:33.844138+00:00",
+  "generated_utc": "2026-07-19T06:59:15.513498+00:00",
   "root": ".",
   "status": "complete",
   "validation_errors": [],
@@ -132,8 +132,8 @@
     },
     "FINAL_REPORT.md": {
       "path": "FINAL_REPORT.md",
-      "size_bytes": 14184,
-      "sha256": "abdfe1fd6a77b3a19c0f44d6fc4b82410f50bdaa1bd3bcfe3226b05aa0e36878"
+      "size_bytes": 43624,
+      "sha256": "3425052dd2309d32fdab39f40eabdbc4ed7d06bfae5c31aa06c445dc30053bb6"
     },
     "SECOND_EXPERIMENT_REPORT.md": {
       "path": "SECOND_EXPERIMENT_REPORT.md",
