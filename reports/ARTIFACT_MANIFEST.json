@@ -1,6 +1,6 @@
 {
   "format_version": 1,
-  "generated_utc": "2026-07-21T03:43:12.981829+00:00",
+  "generated_utc": "2026-07-21T03:54:38.720176+00:00",
   "root": ".",
   "status": "complete",
   "validation_errors": [],
@@ -122,8 +122,8 @@
   "artifacts": {
     "FINAL_REPORT.md": {
       "path": "FINAL_REPORT.md",
-      "size_bytes": 43502,
-      "sha256": "95f250f5c3397df6d74624dc221e5cb3fd098ef2d585a77971242e65b0daddfd"
+      "size_bytes": 26991,
+      "sha256": "cf29a42f4d97afd19965f648c8ae85d038d1d7bdc45a7d80e1a8750f9e7cd5ca"
     },
     "datasets/vla_jepa_libero130_v3/manifest.json": {
       "path": "datasets/vla_jepa_libero130_v3/manifest.json",
