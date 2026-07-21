@@ -15,5 +15,13 @@ datasets/vla_jepa_libero130_v3/*
 !datasets/vla_jepa_libero130_v3/README.md
 !datasets/vla_jepa_libero130_v3/manifest.json
 
+# Track only the lightweight contract/provenance for the zero-shot pretrain
+# collection. HDF5, MP4, and worker logs remain local/generated artifacts.
+!datasets/vla_jepa_pretrain_libero40_v1/
+datasets/vla_jepa_pretrain_libero40_v1/*
+!datasets/vla_jepa_pretrain_libero40_v1/README.md
+!datasets/vla_jepa_pretrain_libero40_v1/collection_config.json
+!datasets/vla_jepa_pretrain_libero40_v1/manifest.json
+
 # Evaluation indices, caches, logs, and result tables are reproducible local outputs.
 evaluation_outputs/

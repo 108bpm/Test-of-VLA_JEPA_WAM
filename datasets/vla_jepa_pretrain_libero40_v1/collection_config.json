@@ -1,0 +1,42 @@
+{
+  "name": "vla_jepa_pretrain_libero40_v1",
+  "status": "collecting",
+  "purpose": "Zero-shot LIBERO evaluation of the released VLA-JEPA pretrain checkpoint before LIBERO fine-tuning",
+  "checkpoint": {
+    "path": "../VLA-JEPA/checkpoints/VLA-JEPA/Pretrain/checkpoints/VLA-JEPA-pretrain.pt",
+    "sha256": "fd929c79d9bbd0bda56c0b952c7acb470d93c6241a519013fe5248c3f3ea5fab",
+    "config_sha256": "eff2545a17b3fcf253dc4aa89ad1e64639043633c1d17d71dc9f46396b7a6998",
+    "dataset_statistics_sha256": "80cdf9e62eb1e43e33a3f576491a553c772f5bc8836508627bf0ce7266f370dd"
+  },
+  "training_data": {
+    "robot_data_mix": "droid",
+    "video_data": "something-something-v2",
+    "libero_finetuned": false
+  },
+  "policy_input": {
+    "robot_state": false,
+    "action_normalization": "checkpoint-native franka statistics from the DROID pretraining run",
+    "seed": 7,
+    "action_chunk_size": 7
+  },
+  "collection": {
+    "suites": [
+      "libero_spatial",
+      "libero_object",
+      "libero_goal",
+      "libero_10"
+    ],
+    "excluded_suites": [
+      "libero_90"
+    ],
+    "tasks_per_suite": 10,
+    "rollouts_per_task": 10,
+    "expected_tasks": 40,
+    "expected_rollouts": 400
+  },
+  "source_commits": {
+    "latent_world_model": "bb795a8b85de3b2a1ed0ae63b85b9794bcea0b62",
+    "vla_jepa": "ec8c70f6e155e2377bbd4d787004c14179c00c7c",
+    "libero": "8f1084e3132a39270c3a13ebe37270a43ece2a01"
+  }
+}
