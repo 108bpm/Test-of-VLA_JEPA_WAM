@@ -16,7 +16,7 @@ schema and collection statistics are documented in
 ## Install
 
 ```bash
-git clone git@github.com:108bpm/Test-of-VLA_JEPA_WAM.git latent_world_model
+git clone git@github.com:108bpm/Test-of-VLA_JEPA_WM.git latent_world_model
 cd latent_world_model
 pip install -e .
 ```

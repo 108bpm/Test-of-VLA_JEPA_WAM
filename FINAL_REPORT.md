@@ -493,7 +493,7 @@ V-JEPA2 没有与当前 encoder 配套的 latent-to-RGB decoder。本项目的 p
 
 | 内容 | 地址或路径 |
 |---|---|
-| GitHub 仓库 | `git@github.com:108bpm/Test-of-VLA_JEPA_WAM.git` |
+| GitHub 仓库 | `git@github.com:108bpm/Test-of-VLA_JEPA_WM.git` |
 | Hugging Face 数据集 | [Monita108/VLA_JEPA-on-libero](https://huggingface.co/datasets/Monita108/VLA_JEPA-on-libero) |
 | 英文项目说明 | `README.md` |
 | 中文项目说明 | `README_CN.md` |
