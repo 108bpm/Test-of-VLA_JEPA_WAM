@@ -35,7 +35,7 @@
     "expected_rollouts": 400
   },
   "source_commits": {
-    "latent_world_model": "bb795a8b85de3b2a1ed0ae63b85b9794bcea0b62",
+    "latent_world_model": "78f3e7bb4198dacab890faa43300defc03f21d57",
     "vla_jepa": "ec8c70f6e155e2377bbd4d787004c14179c00c7c",
     "libero": "8f1084e3132a39270c3a13ebe37270a43ece2a01"
   }
