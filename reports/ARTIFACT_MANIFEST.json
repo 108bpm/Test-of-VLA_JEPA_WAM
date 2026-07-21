@@ -1,6 +1,6 @@
 {
   "format_version": 1,
-  "generated_utc": "2026-07-19T06:59:15.513498+00:00",
+  "generated_utc": "2026-07-21T03:43:12.981829+00:00",
   "root": ".",
   "status": "complete",
   "validation_errors": [],
@@ -120,25 +120,10 @@
     }
   },
   "artifacts": {
-    "COMPREHENSIVE_REPORT.md": {
-      "path": "COMPREHENSIVE_REPORT.md",
-      "size_bytes": 20744,
-      "sha256": "cab38c444217e40cc2edbd5d6c22d9ef39b57038867a0ab6bcebcb4028b29ba0"
-    },
-    "EXPERIMENT_AUDIT_REPORT.md": {
-      "path": "EXPERIMENT_AUDIT_REPORT.md",
-      "size_bytes": 25179,
-      "sha256": "243666b288252af8862b8c76f68fb63613268f388fffe6bf08dbc5abeae370dd"
-    },
     "FINAL_REPORT.md": {
       "path": "FINAL_REPORT.md",
-      "size_bytes": 43624,
-      "sha256": "3425052dd2309d32fdab39f40eabdbc4ed7d06bfae5c31aa06c445dc30053bb6"
-    },
-    "SECOND_EXPERIMENT_REPORT.md": {
-      "path": "SECOND_EXPERIMENT_REPORT.md",
-      "size_bytes": 6176,
-      "sha256": "064d4d3bc54db2aadf0ecc32afd13977868afbeaa28048b9597e6df679cc0520"
+      "size_bytes": 43502,
+      "sha256": "95f250f5c3397df6d74624dc221e5cb3fd098ef2d585a77971242e65b0daddfd"
     },
     "datasets/vla_jepa_libero130_v3/manifest.json": {
       "path": "datasets/vla_jepa_libero130_v3/manifest.json",
@@ -527,8 +512,8 @@
     },
     "latent_world_model/evaluation/archive_manifest.py": {
       "path": "latent_world_model/evaluation/archive_manifest.py",
-      "size_bytes": 7930,
-      "sha256": "32ab2f66f60bb5e601faacfd3b3a44ebba350a44bd1731508d666e00a47dea83"
+      "size_bytes": 7785,
+      "sha256": "ff04965b933bf94f0454e7566ee1e3cb3c83b8f285a6f29e95e267010423d315"
     },
     "latent_world_model/evaluation/report.py": {
       "path": "latent_world_model/evaluation/report.py",

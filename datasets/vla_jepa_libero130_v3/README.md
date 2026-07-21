@@ -1,5 +1,8 @@
 # VLA-JEPA × LIBERO latent-world-model rollouts (v3)
 
+The published dataset is available at
+**[Monita108/VLA_JEPA-on-libero](https://huggingface.co/datasets/Monita108/VLA_JEPA-on-libero)**.
+
 This directory is the canonical, deduplicated rollout dataset for evaluating the
 action-conditioned `latent_world_model`.  It contains VLA-JEPA policy rollouts
 in the five standard LIBERO suites, together with the VLA-JEPA latent action
@@ -80,7 +83,7 @@ provide its aligned `[24, 2048]` latent action token tensor to the model.
 not mean the 24 tokens are an encoding of the exact sampled action chunk. In
 VLA-JEPA, the world-model tokens and the stochastic action head use separate
 Qwen token slots. This distinction and the environment-level validation are
-documented in [`../../EXPERIMENT_AUDIT_REPORT.md`](../../EXPERIMENT_AUDIT_REPORT.md).
+documented in [`../../FINAL_REPORT.md`](../../FINAL_REPORT.md).
 
 The standalone model's default configuration has 8 video frames, V-JEPA2
 tubelet size 2, and 3 context latent steps.  Its predictor consumes `z0..z2`

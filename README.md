@@ -1,11 +1,22 @@
 # V-JEPA latent world model
 
+[English](README.md) | [中文](README_CN.md)
+
 Standalone, action-conditioned latent world model extracted from VLA-JEPA. It contains no Qwen, robot dataset, trainer, or action-policy dependency. The frozen V-JEPA2 encoder maps a multi-view video to latent patch tokens; the trainable predictor maps context tokens plus **external latent actions** to a time-aligned sequence of next latent states.
+
+The finalized VLA-JEPA × LIBERO rollout dataset is available on Hugging Face:
+
+**[Monita108/VLA_JEPA-on-libero](https://huggingface.co/datasets/Monita108/VLA_JEPA-on-libero)**
+
+It contains 1,300 validated multi-view rollouts across all 130 tasks in
+LIBERO-SPATIAL, LIBERO-OBJECT, LIBERO-GOAL, LIBERO-90, and LIBERO-10. The local
+schema and collection statistics are documented in
+[`datasets/vla_jepa_libero130_v3/README.md`](datasets/vla_jepa_libero130_v3/README.md).
 
 ## Install
 
 ```bash
-git clone <your-repository-containing-this-folder> latent_world_model
+git clone git@github.com:108bpm/Test-of-VLA_JEPA_WAM.git latent_world_model
 cd latent_world_model
 pip install -e .
 ```
@@ -52,8 +63,7 @@ hidden states at `<|action_i|>` slots.  They are the native learned
 action-conditioning representation used by both source training and this
 package's evaluation; no one-to-one reconstruction of the policy's stochastic
 7-step action chunk is required.  The representation semantics and empirical
-shuffle controls are documented in
-[`EXPERIMENT_AUDIT_REPORT.md`](EXPERIMENT_AUDIT_REPORT.md).
+shuffle controls are documented in [`FINAL_REPORT.md`](FINAL_REPORT.md).
 
 For projects that already produce V-JEPA latent tensors, skip video encoding:
 
@@ -76,30 +86,14 @@ model.load_predictor_checkpoint("../VLA-JEPA/checkpoints/VLA-JEPA/LIBERO/checkpo
 
 Only the `vj_predictor.*` prefix is loaded; the V-JEPA2 encoder remains frozen.
 
-The finalized VLA-JEPA × LIBERO rollout dataset is documented in
-[`datasets/vla_jepa_libero130_v3/README.md`](datasets/vla_jepa_libero130_v3/README.md).
-It provides 1300 validated multi-view rollouts, aligned latent action tokens,
-executed actions, and matching videos for evaluating this model.
-
-The detailed collection-to-results analysis, including reproducible CSV tables
-and figures generated from the formal half-dataset run, is in
-[`COMPREHENSIVE_REPORT.md`](COMPREHENSIVE_REPORT.md). The analysis entry point is
-`latent_world_model.evaluation.deep_analysis`; its generated artifacts live
-under `evaluation_outputs/deep_analysis/` and are intentionally kept out of
-Git because they are derived from large local results.
-
-The subsequent end-to-end correctness audit—including full action/video
-alignment, deterministic LIBERO replay, live latent-token recomputation,
-training-view fusion analysis, and corrected training-matched diagnostics—is
-recorded in [`EXPERIMENT_AUDIT_REPORT.md`](EXPERIMENT_AUDIT_REPORT.md). It
-supersedes the old report wherever protocol validity is discussed.
-
-The final integrated interpretation is [`FINAL_REPORT.md`](FINAL_REPORT.md).
-It combines the first 130×5 strict-causal experiment, the audit evidence, and
-the second complete 130×5 joint-C3 teacher-forcing experiment.  The second
-experiment alone is documented in
-[`SECOND_EXPERIMENT_REPORT.md`](SECOND_EXPERIMENT_REPORT.md), and the report/
-data retention index is [`reports/README.md`](reports/README.md).
+The single authoritative result document is
+[`FINAL_REPORT.md`](FINAL_REPORT.md). It is a standalone account of the model
+interface, dataset collection and validation, experiment design, strict-causal
+results, implementation audit, complete joint-C3 evaluation, limitations, and
+final conclusions. No other report is required to interpret the work. The
+analysis entry point is `latent_world_model.evaluation.deep_analysis`; large
+generated artifacts remain outside Git and are indexed by
+`reports/ARTIFACT_MANIFEST.json`.
 
 For a result-free description of the collection logic, variables, formal
 conditions, staged experiment funnel, and statistical rules, see

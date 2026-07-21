@@ -12,10 +12,10 @@ are never trained or fine-tuned by these commands.
 > its files, not a fully training-matched or fully time-aligned protocol. The
 > audit found that no historical formal condition exactly reproduced the
 > source joint-C3 training objective, and that legacy AR-H3 mixes a 7-frame
-> policy-query interval with 2-frame tubelets. Read
-> [`EXPERIMENT_AUDIT_REPORT.md`](EXPERIMENT_AUDIT_REPORT.md) before interpreting
-> those results. The runner now refuses legacy H3 unless explicitly asked to
-> reproduce it.
+> policy-query interval with 2-frame tubelets. Read the audit and interpretation
+> sections in [`FINAL_REPORT.md`](FINAL_REPORT.md) before interpreting those
+> results. The runner now refuses legacy H3 unless explicitly asked to reproduce
+> it.
 
 ## Data and environments
 
@@ -182,9 +182,9 @@ MPLCONFIGDIR=/tmp/lwm_mpl PYTHONPATH=$PWD \
   --bootstrap-replicates 1000
 ```
 
-The tracked interpretation is [`COMPREHENSIVE_REPORT.md`](COMPREHENSIVE_REPORT.md);
-the generated report and CSV/PNG artifacts are in the output directory. The
-script streams all 1300 HDF5 records and never loads the video frames or latent
+The authoritative interpretation is [`FINAL_REPORT.md`](FINAL_REPORT.md); the
+generated report and CSV/PNG artifacts are in the output directory. The script
+streams all 1300 HDF5 records and never loads the video frames or latent
 memmaps into one large array.
 
 ## Metrics and inference rules

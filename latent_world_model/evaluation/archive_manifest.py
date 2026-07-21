@@ -139,9 +139,6 @@ def build_manifest(root: Path) -> dict[str, Any]:
             root / "latent_world_model/evaluation/runner.py",
             root / "latent_world_model/evaluation/report.py",
             root / "latent_world_model/evaluation/archive_manifest.py",
-            root / "COMPREHENSIVE_REPORT.md",
-            root / "EXPERIMENT_AUDIT_REPORT.md",
-            root / "SECOND_EXPERIMENT_REPORT.md",
             root / "FINAL_REPORT.md",
         ],
     )

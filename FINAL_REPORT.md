@@ -818,16 +818,14 @@ PYTHONPATH=$PWD conda run --no-capture-output -n VLA_JEPA \
 
 它们分别位于 `evaluation_outputs/deep_analysis/`、`evaluation_outputs/formal_half/` 和 `evaluation_outputs/joint_c3_full/`。本文已经包含理解结论所需的关键数字，图表只用于展示，不要求读者再阅读其他报告。
 
-### 13.5 证据报告的定位
+### 13.5 单一报告与证据来源
 
-以下旧文档继续保留，作用是审计追溯，而不是理解本文的前置材料：
+本文已经整合第一次 strict-causal 实验、全链路审计和第二次 joint-C3
+实验的关键设计、数字与结论，是仓库中唯一保留的人工结果报告。理解和
+展示本项目不需要依赖其他历史报告。
 
-- `COMPREHENSIVE_REPORT.md`：第一次实验形成时的完整历史分析；
-- `EXPERIMENT_AUDIT_REPORT.md`：审计过程和实现证据；
-- `SECOND_EXPERIMENT_REPORT.md`：joint-C3 单项实验记录；
-- `reports/archive/FIRST_EXPERIMENT_SUMMARY.md`：历史摘要。
-
-如旧文档中的解释与本文冲突，以本文为准；原始数值则以 `metrics.jsonl`、`summary.json` 和 manifest 为证据源。
+原始数值继续以本地 `metrics.jsonl`、`summary.json`、聚合 CSV/图表和
+`reports/ARTIFACT_MANIFEST.json` 为可校验证据源。
 
 ### 13.6 验证命令
 
